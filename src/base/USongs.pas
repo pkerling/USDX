@@ -138,6 +138,7 @@ type
     function FindPreviousVisible(SearchFrom: integer): integer; // Find Previous visible Song
     function VisibleSongs: integer;                         // returns number of visible songs (for tabs)
     function VisibleIndex(Index: integer): integer;         // returns visible song index (skips invisible)
+    function AbsoluteIndex(VIndex: integer): integer;       // returns absolute song index from visible index
 
     function SetFilter(FilterStr: UTF8String; Filter: TSongFilter): cardinal;
   end;
@@ -859,6 +860,32 @@ begin
   begin
     if (CatSongs.Song[SongIndex].Visible) then
       Inc(Result);
+  end;
+end;
+
+(**
+ * Returns the absoltue index of a song given as index in the subset of all visible songs
+ * If all songs are visible, the result will be equal to the Index parameter.
+ * This is the inverse operation to TCatSongs.VisibleIndex.
+ *)
+function TCatSongs.AbsoluteIndex(VIndex: integer): integer;
+var
+  SongIndex: integer;
+  Count: integer;
+begin
+  Result := -1;
+  Count := -1;
+  for SongIndex := 0 to High(CatSongs.Song) do
+  begin
+    if (CatSongs.Song[SongIndex].Visible) then
+    begin
+      Inc(Count);
+      if (Count = VIndex) then
+      begin
+        Result := SongIndex;
+        break;
+      end;
+    end;
   end;
 end;
 

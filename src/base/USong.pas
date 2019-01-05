@@ -173,6 +173,8 @@ type
     CustomTags: array of TCustomHeaderTag;
 
     Score:      array[0..2] of array of TScore;
+    
+    UsedAsRandom: boolean; // whether the random generator already picked this song in the past
 
     // these are used when sorting is enabled
     Visible:    boolean; // false if hidden, true if visible

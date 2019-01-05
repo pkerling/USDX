@@ -61,6 +61,7 @@ uses
 
 type
   TVisArr = array of integer;
+  TSongIndexArray = array of integer;
 
   TScreenSong = class(TMenu)
     private
@@ -3918,25 +3919,83 @@ procedure TScreenSong.SelectRandomSong;
 var
   I, I2, Count, RealTarget: integer;
   Target: cardinal;
+  
+  
+  AvSongs: TSongIndexArray;
+  AvSongIndex: integer;
+  
+  function FilterAvailableSongs(filterVisible: boolean): TSongIndexArray;
+  var
+    S: integer;
+    Index: integer;
+  begin
+    SetLength(Result, 0);
+    Writeln('>>FilterAvailableSongs: START');
+    for S := 0 to High(CatSongs.Song) do
+    begin
+      if (
+        (CatSongs.Song[S].Visible or (not filterVisible)) and
+        (not CatSongs.Song[S].Main) and
+        (not CatSongs.Song[S].UsedAsRandom) and
+        ((Mode <> smPartyClassic) or (not CatSongs.Song[S].isDuet))
+      ) then
+      begin
+        Writeln(Format('Add index %d', [S]));
+        Index := Length(Result);
+        SetLength(Result, Index+1);
+        Result[Index] := S;
+      end;
+    end;
+    Writeln('<<FilterAvailableSongs: END');
+  end;
+  
+  procedure ResetRandomFlags;
+  var
+    S: integer;
+  begin
+    Writeln('Resetting random flags');
+    for S := 0 to High(CatSongs.Song) do
+    begin
+     if (not CatSongs.Song[S].Main) then
+       CatSongs.Song[S].UsedAsRandom := false;
+    end;
+  end;
+  
+  function AvailableSongList(filterVisible: boolean): TSongIndexArray;
+  begin
+    Result := FilterAvailableSongs(filterVisible);
+    if (Length(Result) = 0) then
+    begin
+      ResetRandomFlags;
+      Result := FilterAvailableSongs(filterVisible);
+    end;
+  end;
+  
 begin
+  WriteLn('Switch song');
+  Log.LogStatus('Choose random song', 'UScreenSong');
   case PlayListMan.Mode of
       smAll:  // all songs just select random song
         begin
           // when tabs are activated then use tab method
           if (Ini.TabsAtStartup = 1) then
           begin
-            repeat
-              I2 := Low(CatSongs.Song) + Random(High(CatSongs.Song) + 1 - Low(CatSongs.Song));
-            until CatSongs.Song[I2].Main = false;
-
+            AvSongs := AvailableSongList(false);
+            AvSongIndex := Random(Length(AvSongs));
+            Writeln(Format('Picking from %d songs: %d', [Length(AvSongs), AvSongIndex]));
+            RealTarget := AvSongs[AvSongIndex];
+            Writeln(Format('RealTarget: %d', [RealTarget]));
+            Writeln(Format('Song title: %s', [CatSongs.Song[RealTarget].Title]));
+            
             // search cat
-            for I := I2 downto Low(CatSongs.Song) do
+            for I := RealTarget downto 0 do
             begin
-              if CatSongs.Song[I].Main and (PermitCategory(I)) then
+              if CatSongs.Song[I].Main then
                 break;
             end;
-            // I is the cat number, I2 is the no of the song within this cat
-
+            
+            Writeln(Format('Category: %d (%s)', [I, CatSongs.Song[I].Artist]));
+            
             // choose cat
             CatSongs.ShowCategoryList;
 
@@ -3945,56 +4004,28 @@ begin
 
             CatSongs.ClickCategoryButton(I);
             SelectNext;
-
-            // choose song
-            // duets not playable
-            if (Mode = smPartyClassic) then
-            begin
-              repeat
-                Target := Random(CatSongs.VisibleSongs);
-
-                RealTarget := -1;
-                Count := -1;
-
-                repeat
-                  Inc(RealTarget);
-
-                  if (CatSongs.Song[RealTarget].Visible) then
-                    Inc(Count);
-                until (Count = Target);
-
-              until not(CatSongs.Song[RealTarget].isDuet);
-            end
-            else
-              Target := Random(CatSongs.VisibleSongs);
-
-            SkipTo(Target, RealTarget, CatSongs.VisibleSongs);
+            
+            Target := CatSongs.VisibleIndex(RealTarget);
+            Writeln(Format('Visible index: %d', [Target]));
+            
+            CatSongs.Song[RealTarget].UsedAsRandom := true;
+            SkipTo(Target);
+            
+            //SkipTo(Target, RealTarget, CatSongs.VisibleSongs);
             //SkipTo(I2 - I);
           end
           // when tabs are deactivated use easy method
           else
           begin
-            // duets not playable
-            if (Mode = smPartyClassic) then
-            begin
-              repeat
-                Target := Random(CatSongs.VisibleSongs);
+            AvSongs := AvailableSongList(true);
+            AvSongIndex := Random(Length(AvSongs));
+            Writeln(Format('Picking from %d songs: %d', [Length(AvSongs), AvSongIndex]));
+            RealTarget := AvSongs[AvSongIndex];
+            Target := CatSongs.VisibleIndex(RealTarget);
+            Writeln(Format('RealTarget: %d, Visible Target: %d', [RealTarget, Target]));
+            Writeln(Format('Song title: %s', [CatSongs.Song[RealTarget].Title]));
 
-                RealTarget := -1;
-                Count := -1;
-
-                repeat
-                  Inc(RealTarget);
-
-                  if (CatSongs.Song[RealTarget].Visible) then
-                    Inc(Count);
-                until (Count = Target);
-
-              until not(CatSongs.Song[RealTarget].isDuet);
-            end
-            else
-              Target := Random(CatSongs.VisibleSongs);
-
+            CatSongs.Song[RealTarget].UsedAsRandom := true;
             SkipTo(Target);
           end;
         end;
